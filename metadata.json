@@ -1,0 +1,6 @@
+{
+  "name": "ارزیابی جلسات مشاوره تحصیلی",
+  "description": "سامانه جامع ارزیابی جلسات مشاوره حضوری و پنل مدیریت",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

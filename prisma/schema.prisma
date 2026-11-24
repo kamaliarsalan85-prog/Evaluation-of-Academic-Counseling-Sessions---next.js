@@ -1,0 +1,238 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+}
+
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum FormVersionStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  DESCRIPTIVE
+  RATING
+  YES_NO
+}
+
+model Administrator {
+  id               String            @id @default(uuid())
+  username         String            @unique
+  passwordHash     String            @map("password_hash")
+  fullName         String            @map("full_name")
+  role             AdminRole         @default(ADMIN)
+  status           RecordStatus      @default(ACTIVE)
+  failedLoginCount Int               @default(0) @map("failed_login_count")
+  lockedUntil      DateTime?         @map("locked_until")
+  lastLoginAt      DateTime?         @map("last_login_at")
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
+
+  permissions      AdminPermission[]
+  sessions         AdminSession[]
+  auditLogs        AuditLog[]
+
+  @@index([status, role])
+  @@map("administrators")
+}
+
+model AdminPermission {
+  id            String        @id @default(uuid())
+  adminId       String        @map("admin_id")
+  permissionKey String        @map("permission_key")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  admin         Administrator @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([adminId, permissionKey])
+  @@index([adminId])
+  @@map("admin_permissions")
+}
+
+model AdminSession {
+  id        String        @id @default(uuid())
+  adminId   String        @map("admin_id")
+  tokenHash String        @unique @map("token_hash")
+  csrfToken String        @map("csrf_token")
+  expiresAt DateTime      @map("expires_at")
+  revokedAt DateTime?     @map("revoked_at")
+  ipAddress String?       @map("ip_address")
+  userAgent String?       @map("user_agent")
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  admin     Administrator @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([expiresAt])
+  @@map("admin_sessions")
+}
+
+model Counselor {
+  id          String       @id @default(uuid())
+  firstName   String       @map("first_name")
+  lastName    String       @map("last_name")
+  description String?
+  status      RecordStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  submissions Submission[]
+
+  @@index([status])
+  @@index([lastName, firstName])
+  @@map("counselors")
+}
+
+model Form {
+  id          String        @id @default(uuid())
+  title       String
+  description String?
+  status      RecordStatus  @default(ACTIVE)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  versions    FormVersion[]
+
+  @@map("forms")
+}
+
+model FormVersion {
+  id            String            @id @default(uuid())
+  formId        String            @map("form_id")
+  versionNumber Int               @map("version_number")
+  status        FormVersionStatus @default(DRAFT)
+  notes         String?
+  publishedAt   DateTime?         @map("published_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  form          Form              @relation(fields: [formId], references: [id], onDelete: Cascade)
+  questions     Question[]
+  submissions   Submission[]
+
+  @@unique([formId, versionNumber])
+  @@index([status])
+  @@map("form_versions")
+}
+
+model Question {
+  id            String             @id @default(uuid())
+  formVersionId String             @map("form_version_id")
+  questionText  String             @map("question_text")
+  questionType  QuestionType       @map("question_type")
+  isRequired    Boolean            @default(true) @map("is_required")
+  isActive      Boolean            @default(true) @map("is_active")
+  displayOrder  Int                @map("display_order")
+  config        Json?
+  createdAt     DateTime           @default(now()) @map("created_at")
+
+  formVersion   FormVersion        @relation(fields: [formVersionId], references: [id], onDelete: Cascade)
+  options       QuestionOption[]
+  answers       SubmissionAnswer[]
+
+  @@index([formVersionId, displayOrder])
+  @@index([formVersionId, isActive])
+  @@map("questions")
+}
+
+model QuestionOption {
+  id           String   @id @default(uuid())
+  questionId   String   @map("question_id")
+  optionText   String   @map("option_text")
+  displayOrder Int      @map("display_order")
+
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId, displayOrder])
+  @@map("question_options")
+}
+
+model Submission {
+  id            String             @id @default(uuid())
+  firstName     String             @map("first_name")
+  lastName      String             @map("last_name")
+  counselorId   String             @map("counselor_id")
+  formVersionId String             @map("form_version_id")
+  submittedAt   DateTime           @default(now()) @map("submitted_at")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  counselor     Counselor          @relation(fields: [counselorId], references: [id], onDelete: Restrict)
+  formVersion   FormVersion        @relation(fields: [formVersionId], references: [id], onDelete: Restrict)
+  answers       SubmissionAnswer[]
+
+  @@index([counselorId])
+  @@index([formVersionId])
+  @@index([submittedAt])
+  @@index([lastName, firstName])
+  @@map("submissions")
+}
+
+model SubmissionAnswer {
+  id               String     @id @default(uuid())
+  submissionId     String     @map("submission_id")
+  questionId       String     @map("question_id")
+  answerText       String?    @map("answer_text")
+  answerData       Json?      @map("answer_data")
+  questionSnapshot Json       @map("question_snapshot")
+  optionsSnapshot  Json?      @map("options_snapshot")
+  createdAt        DateTime   @default(now()) @map("created_at")
+
+  submission       Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question         Question   @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@unique([submissionId, questionId])
+  @@index([submissionId])
+  @@index([questionId])
+  @@map("submission_answers")
+}
+
+model AuditLog {
+  id         String         @id @default(uuid())
+  adminId    String?        @map("admin_id")
+  action     String
+  entityType String         @map("entity_type")
+  entityId   String?        @map("entity_id")
+  metadata   Json?
+  ipAddress  String?        @map("ip_address")
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  admin      Administrator? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([adminId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model AppSettings {
+  id                        String   @id @default("default")
+  appTitle                  String   @map("app_title")
+  appDescription            String   @map("app_description")
+  successMessage            String   @map("success_message")
+  privacyNotice             String   @map("privacy_notice")
+  institutionName           String   @default("مرکز مشاوره و هدایت تحصیلی") @map("institution_name")
+  isFormAvailable           Boolean  @default(true) @map("is_form_available")
+  isPublicSubmissionEnabled Boolean  @default(true) @map("is_public_submission_enabled")
+  timezone                  String   @default("Asia/Tehran")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
+}
