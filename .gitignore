@@ -2,7 +2,10 @@ node_modules/
 build/
 dist/
 .next/
+.next-e2e/
 .dev-pgdata/
+.playwright-cli/
+.tmp-shots/
 coverage/
 .DS_Store
 *.log

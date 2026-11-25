@@ -18,7 +18,20 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+function resolveMetadataBase(): URL {
+  const raw = process.env.APP_URL?.trim();
+  if (raw) {
+    try {
+      return new URL(raw);
+    } catch {
+      // fall through to localhost
+    }
+  }
+  return new URL('http://localhost:3000');
+}
+
 export const metadata: Metadata = {
+  metadataBase: resolveMetadataBase(),
   title: 'ارزیابی جلسات مشاوره تحصیلی',
   description: 'سامانه جامع ارزیابی جلسات مشاوره حضوری و پنل مدیریت',
   openGraph: {

@@ -7,10 +7,11 @@
     "dev": "tsx scripts/dev-server.ts",
     "dev:next": "next dev -p 3000 -H 0.0.0.0",
     "build": "prisma generate && next build",
-    "start": "next start -p 3000 -H 0.0.0.0",
+    "start": "node scripts/start-production.mjs",
+    "postinstall": "prisma generate",
     "clean": "rm -rf .next dist",
     "lint": "tsc --noEmit",
-    "test": "tsx --test src/**/*.test.ts",
+    "test": "tsx --test src/lib/__tests__/pure-logic.test.ts src/lib/__tests__/db-integration.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts"

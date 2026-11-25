@@ -53,8 +53,11 @@ export function isHttpsRequest(req: NextRequest): boolean {
   if (referer) {
     return referer.startsWith('https://');
   }
-  const host = (req.headers.get('x-forwarded-host') || req.headers.get('host') || '').toLowerCase();
-  if (host.startsWith('localhost') || host.startsWith('127.0.0.1')) {
+  const forwardedHost = (req.headers.get('x-forwarded-host') || req.headers.get('host') || '')
+    .split(',')[0]
+    ?.trim()
+    .toLowerCase();
+  if (forwardedHost.startsWith('localhost') || forwardedHost.startsWith('127.0.0.1')) {
     return req.nextUrl.protocol === 'https:';
   }
   if (process.env.APP_URL?.startsWith('https://')) {
@@ -181,14 +184,15 @@ export function verifyRequestOriginAndCsrf(req: NextRequest, admin: Authenticate
   }
 
   const origin = req.headers.get('origin');
-  const host = req.headers.get('x-forwarded-host') || req.headers.get('host');
+  const rawHost = req.headers.get('x-forwarded-host') || req.headers.get('host');
+  const host = rawHost?.split(',')[0]?.trim().toLowerCase();
   if (origin && host) {
     try {
-      const originHost = new URL(origin).host;
+      const originHost = new URL(origin).host.toLowerCase();
       let appUrlHost: string | null = null;
       if (process.env.APP_URL) {
         try {
-          appUrlHost = new URL(process.env.APP_URL).host;
+          appUrlHost = new URL(process.env.APP_URL).host.toLowerCase();
         } catch {
           appUrlHost = null;
         }
